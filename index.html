@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMO - Agent IA Local</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>EMO</h1>
+                <p>Agent local Windows, conçu pour réfléchir, utiliser des outils et agir sur la machine.</p>
+            </div>
+            
+            <div class="hero">
+                <h2>Mode autonomie large</h2>
+                <p>EMO planifie ses actions, observe les résultats d'outils, puis continue jusqu'au résultat ou au blocage réel.</p>
+            </div>
+            
+            <button class="sidebar-btn" id="new-chat-btn">Nouveau chat</button>
+            <button class="sidebar-btn" id="open-memory-btn">Ouvrir la mémoire</button>
+            <button class="sidebar-btn" id="open-config-btn">Ouvrir la config</button>
+            <button class="sidebar-btn" id="admin-btn">Relancer en admin</button>
+            
+            <div class="info-panel">
+                <div class="info-row">
+                    <label>Statut</label>
+                    <div class="info-value" id="status-value">Prêt</div>
+                </div>
+                <div class="info-row">
+                    <label>Privilèges</label>
+                    <div class="info-value" id="privilege-value">Session standard</div>
+                </div>
+                <div class="info-row">
+                    <label>Modèle</label>
+                    <div class="info-value" id="model-value">Non configuré</div>
+                </div>
+                <div class="info-row">
+                    <label>Appareils</label>
+                    <div class="info-value" id="devices-value">0 appareil(s) configuré(s)</div>
+                </div>
+                <div class="info-row">
+                    <label>Actions protégées</label>
+                    <div class="info-value" id="security-value">0 action(s) sensible(s)</div>
+                </div>
+            </div>
+            
+            <div class="toolbox">
+                <h3>Surface d'action</h3>
+                <p>Fichiers, shell, PowerShell, processus, services, impression, micro, réseau local, automation écran et appareils configurés.</p>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header>
+                <h1>Conversation</h1>
+                <p>Boucle agentique locale : thinking, outils, observations, puis action utile.</p>
+                <div class="model-chip" id="model-chip"></div>
+            </header>
+            
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will be inserted here -->
+                </div>
+            </div>
+            
+            <div class="composer">
+                <div class="composer-card">
+                    <textarea id="input-text" placeholder="Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne. Les actions sensibles demanderont le mot de passe."></textarea>
+                    <button id="send-btn">Envoyer</button>
+                </div>
+                <p class="helper-text">Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne. Les actions sensibles demanderont le mot de passe.</p>
+            </div>
+        </main>
+    </div>
+    
+    <script src="assets/js/main.js"></script>
+</body>
+</html>
