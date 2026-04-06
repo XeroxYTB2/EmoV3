@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     // Backend configuration - in production, this would be your Colab endpoint
-    const BACKEND_URL = "https://your-colab-backend-url.hf.space"; // Replace with actual Colab URL
+    const BACKEND_URL = "https://gluey-daxton-immiscible.ngrok-free.dev/"; // Replace with actual Colab URL
     const API_ENDPOINT = `${BACKEND_URL}/chat`;
     const HEALTH_ENDPOINT = `${BACKEND_URL}/health`;
     
