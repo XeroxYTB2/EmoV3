@@ -1,5 +1,5 @@
 // ============================================================
-// EMO - VERSION CORRIGÉE (Proxy CORS fonctionnel)
+// EMO - VERSION ROBUSTE AVEC LOGS COMPLETS
 // ============================================================
 
 (function() {
@@ -8,22 +8,21 @@
   // ---------- État global ----------
   const state = {
     config: {
-      ollamaUrl: localStorage.getItem('emo_ollama_url') || 'https://gluey-daxton-immiscible.ngrok-free.dev',
-      modelName: localStorage.getItem('emo_model_name') || 'hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF:Q8_0',
-      thinkingEnabled: localStorage.getItem('emo_thinking') !== 'false',
-      useProxy: localStorage.getItem('emo_use_proxy') === 'true',
-      proxyUrl: localStorage.getItem('emo_proxy_url') || 'https://corsproxy.io/?'
+      ollamaUrl: '',
+      modelName: '',
+      thinkingEnabled: true,
+      useProxy: false,
+      proxyUrl: ''
     },
-    conversations: JSON.parse(localStorage.getItem('emo_conversations') || '[]'),
-    currentConversationId: localStorage.getItem('emo_current_conv') || null,
+    conversations: [],
+    currentConversationId: null,
     messages: [],
-    isGenerating: false,
-    abortController: null
+    isGenerating: false
   };
 
   let elements = {};
 
-  // ---------- Initialisation des éléments DOM ----------
+  // ---------- Initialisation DOM ----------
   function initElements() {
     elements = {
       ollamaUrl: document.getElementById('ollamaUrl'),
@@ -45,73 +44,84 @@
     };
   }
 
-  // ---------- Initialisation ----------
-  function init() {
-    initElements();
-    loadConfigToUI();
-    loadConversations();
-    setupListeners();
-    renderChatHistory();
-    if (state.config.ollamaUrl) testConnection();
+  // ---------- Chargement de la config stockée ----------
+  function loadStoredConfig() {
+    try {
+      state.config.ollamaUrl = localStorage.getItem('emo_ollama_url') || 'https://gluey-daxton-immiscible.ngrok-free.dev';
+      state.config.modelName = localStorage.getItem('emo_model_name') || 'hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF:Q8_0';
+      state.config.thinkingEnabled = localStorage.getItem('emo_thinking') !== 'false';
+      state.config.useProxy = localStorage.getItem('emo_use_proxy') === 'true';
+      state.config.proxyUrl = localStorage.getItem('emo_proxy_url') || 'https://corsproxy.io/?';
+    } catch (e) {
+      console.warn('Erreur lecture localStorage, valeurs par défaut utilisées');
+    }
+    console.log('📦 Configuration chargée :', { ...state.config });
   }
 
-  // ---------- Configuration UI ----------
-  function loadConfigToUI() {
+  // ---------- Remplir les champs UI ----------
+  function populateUI() {
     elements.ollamaUrl.value = state.config.ollamaUrl;
     elements.modelName.value = state.config.modelName;
     elements.thinkingToggle.checked = state.config.thinkingEnabled;
     elements.useProxy.checked = state.config.useProxy;
-    if (elements.proxyUrl) elements.proxyUrl.value = state.config.proxyUrl;
+    elements.proxyUrl.value = state.config.proxyUrl;
   }
 
+  // ---------- Sauvegarde ----------
   function saveConfig() {
+    // Lire depuis l'UI
     state.config.ollamaUrl = elements.ollamaUrl.value.trim();
     state.config.modelName = elements.modelName.value.trim();
     state.config.thinkingEnabled = elements.thinkingToggle.checked;
     state.config.useProxy = elements.useProxy.checked;
-    if (elements.proxyUrl) state.config.proxyUrl = elements.proxyUrl.value.trim();
+    state.config.proxyUrl = elements.proxyUrl.value.trim();
 
+    // Stocker
     localStorage.setItem('emo_ollama_url', state.config.ollamaUrl);
     localStorage.setItem('emo_model_name', state.config.modelName);
     localStorage.setItem('emo_thinking', state.config.thinkingEnabled);
     localStorage.setItem('emo_use_proxy', state.config.useProxy);
-    if (state.config.proxyUrl) localStorage.setItem('emo_proxy_url', state.config.proxyUrl);
+    localStorage.setItem('emo_proxy_url', state.config.proxyUrl);
 
+    console.log('💾 Configuration sauvegardée :', { ...state.config });
     showToast('Configuration enregistrée', 'success');
     testConnection();
   }
 
-  // ---------- Construction de l'URL effective ----------
-  function getEffectiveUrl(endpoint = '') {
+  // ---------- Construction de l'URL ----------
+  function buildUrl(endpoint) {
     let base = state.config.ollamaUrl.replace(/\/$/, '');
+    const fullTarget = base + endpoint;
     
-    if (state.config.useProxy && state.config.proxyUrl) {
-      // Nettoyer l'URL du proxy (doit se terminer par ? si c'est corsproxy.io)
-      let proxy = state.config.proxyUrl.trim();
-      
-      // Cas spécial pour corsproxy.io : on s'assure qu'il y a bien un ? à la fin
-      if (proxy.includes('corsproxy.io') && !proxy.endsWith('?')) {
-        proxy = proxy.replace(/\/$/, '') + '/?';
-      }
-      
-      // Si le proxy ne contient pas déjà de paramètre, on encode l'URL cible
-      if (!proxy.includes('?') && !proxy.endsWith('?')) {
-        return `${proxy}/${encodeURIComponent(base + endpoint)}`;
-      } else {
-        // corsproxy.io attend l'URL directement après le ?
-        return proxy + encodeURIComponent(base + endpoint);
-      }
+    if (!state.config.useProxy || !state.config.proxyUrl) {
+      console.log(`🔗 URL directe : ${fullTarget}`);
+      return fullTarget;
     }
     
-    return base + endpoint;
+    // Utilisation du proxy
+    let proxy = state.config.proxyUrl.trim();
+    // Nettoyage : on s'assure qu'il y a un ? à la fin pour corsproxy.io
+    if (proxy.includes('corsproxy.io') && !proxy.includes('?')) {
+      proxy = proxy.replace(/\/$/, '') + '/?';
+    }
+    // Construction selon le type de proxy
+    let finalUrl;
+    if (proxy.includes('corsproxy.io')) {
+      // Format attendu : https://corsproxy.io/?https://cible.com/endpoint
+      finalUrl = proxy + encodeURIComponent(fullTarget);
+    } else {
+      // Format : https://proxy.com/url=https://cible.com/endpoint (ou autre)
+      finalUrl = proxy + encodeURIComponent(fullTarget);
+    }
+    console.log(`🔗 URL via proxy : ${finalUrl}`);
+    return finalUrl;
   }
 
   // ---------- Test de connexion ----------
   async function testConnection() {
-    const testUrl = getEffectiveUrl('/api/tags');
+    const testUrl = buildUrl('/api/tags');
     console.log(`🔌 Test connexion vers : ${testUrl}`);
-
-    updateStatus('testing', 'Test...');
+    updateStatus('testing', 'Test en cours...');
 
     try {
       const controller = new AbortController();
@@ -123,15 +133,15 @@
         const data = await response.json();
         const count = data.models?.length || 0;
         updateStatus('connected', `✅ Connecté (${count} modèle(s))`);
-        console.log('✅ Modèles disponibles :', data.models);
+        console.log('✅ Modèles :', data.models);
       } else {
         const text = await response.text();
         updateStatus('error', `Erreur HTTP ${response.status}`);
-        console.error('Réponse non-JSON :', text.substring(0, 200));
+        console.error('❌ Réponse non OK :', text.substring(0, 200));
       }
     } catch (e) {
       updateStatus('error', e.name === 'AbortError' ? 'Timeout' : e.message);
-      console.error('Erreur de connexion :', e);
+      console.error('🔥 Erreur fetch :', e);
     }
   }
 
@@ -144,8 +154,14 @@
     console.log(`🔔 ${msg}`);
   }
 
-  // ---------- Gestion des conversations ----------
+  // ---------- Gestion des conversations (simplifiée) ----------
   function loadConversations() {
+    try {
+      const convs = localStorage.getItem('emo_conversations');
+      if (convs) state.conversations = JSON.parse(convs);
+      const current = localStorage.getItem('emo_current_conv');
+      if (current) state.currentConversationId = current;
+    } catch (e) {}
     if (state.currentConversationId) {
       const conv = state.conversations.find(c => c.id === state.currentConversationId);
       if (conv) state.messages = conv.messages;
@@ -194,21 +210,6 @@
     }
   }
 
-  function deleteConversation(id) {
-    state.conversations = state.conversations.filter(c => c.id !== id);
-    if (state.currentConversationId === id) {
-      if (state.conversations.length > 0) {
-        loadConversation(state.conversations[0].id);
-      } else {
-        createNewConversation();
-      }
-    }
-    localStorage.setItem('emo_conversations', JSON.stringify(state.conversations));
-    localStorage.setItem('emo_current_conv', state.currentConversationId);
-    renderChatHistory();
-  }
-
-  // ---------- Rendu UI ----------
   function renderChatHistory() {
     if (!elements.chatHistory) return;
     elements.chatHistory.innerHTML = '';
@@ -217,44 +218,26 @@
       div.className = `chat-history-item ${c.id === state.currentConversationId ? 'active' : ''}`;
       div.textContent = c.title;
       div.onclick = () => { loadConversation(c.id); };
-      div.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        if (confirm('Supprimer cette conversation ?')) {
-          deleteConversation(c.id);
-        }
-      });
       elements.chatHistory.appendChild(div);
     });
   }
 
   function renderMessages() {
     if (state.messages.length === 0) {
-      elements.messages.innerHTML = `
-        <div class="welcome-message">
-          <div class="welcome-avatar">😏</div>
-          <h2>Hey. Moi c'est Emo.</h2>
-          <p>Ton acolyte légèrement sarcastique et bien trop intelligent.<br>Pose-moi ce que tu veux. Je lèverai sans doute les yeux au ciel avant de répondre.</p>
-        </div>
-      `;
+      elements.messages.innerHTML = `<div class="welcome-message"><div class="welcome-avatar">😏</div><h2>Hey. Moi c'est Emo.</h2><p>Prêt à bosser.</p></div>`;
       return;
     }
     let html = '';
     state.messages.forEach(m => {
       const avatar = m.role === 'user' ? '👤' : '😏';
-      const content = formatMessage(m.content);
-      html += `<div class="message ${m.role}"><div class="message-avatar">${avatar}</div><div class="message-content">${content}</div></div>`;
+      html += `<div class="message ${m.role}"><div class="message-avatar">${avatar}</div><div class="message-content">${formatMessage(m.content)}</div></div>`;
     });
     elements.messages.innerHTML = html;
     elements.messages.scrollTop = elements.messages.scrollHeight;
   }
 
   function formatMessage(text) {
-    return text
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/\n/g, '<br>')
-      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-      .replace(/`([^`]+)`/g, '<code>$1</code>');
+    return text.replace(/</g, '&lt;').replace(/\n/g, '<br>');
   }
 
   // ---------- Envoi de message ----------
@@ -269,15 +252,13 @@
     elements.sendBtn.disabled = true;
     state.isGenerating = true;
 
-    const assistantMsg = { role: 'assistant', content: '', thinking: null };
+    const assistantMsg = { role: 'assistant', content: '' };
     state.messages.push(assistantMsg);
     renderMessages();
 
     try {
-      const responseText = await callOllama(input);
-      const parsed = parseThinking(responseText);
-      assistantMsg.thinking = parsed.thinking;
-      assistantMsg.content = parsed.answer;
+      const response = await callOllama(input);
+      assistantMsg.content = response;
     } catch (e) {
       assistantMsg.content = `Erreur: ${e.message}`;
     } finally {
@@ -289,14 +270,12 @@
   }
 
   async function callOllama(prompt) {
-    const url = getEffectiveUrl('/api/generate');
+    const url = buildUrl('/api/generate');
     console.log(`📤 Envoi à : ${url}`);
-
-    const finalPrompt = state.config.thinkingEnabled ? buildThinkingPrompt(prompt) : prompt;
 
     const body = {
       model: state.config.modelName,
-      prompt: finalPrompt,
+      prompt: state.config.thinkingEnabled ? buildThinkingPrompt(prompt) : prompt,
       stream: false,
       options: { temperature: 0.7, num_predict: 2048 }
     };
@@ -316,44 +295,20 @@
   }
 
   function buildThinkingPrompt(userMsg) {
-    return `Tu es Emo, un assistant IA extrêmement intelligent avec une personnalité sarcastique et légèrement joueuse. Tu es comme un collègue de bureau brillant mais un peu agacé qui tient à toi.
-
-IMPORTANT : Avant de répondre, tu DOIS réfléchir au problème étape par étape. Ton processus de réflexion doit être approfondi et montrer ton raisonnement. Formate ta réponse comme suit :
-
-<thinking>
-[Ton raisonnement détaillé. Décompose le problème, envisage plusieurs angles, reconnais les incertitudes et planifie ta réponse.]
-</thinking>
-
-<answer>
-[Ta réponse réelle. Sois utile mais garde ton ton sarcastique. Sois concis mais complet. Utilise des emojis à l'occasion.]
-</answer>
-
-Utilisateur: ${userMsg}
-Emo:`;
-  }
-
-  function parseThinking(full) {
-    const thinkMatch = full.match(/<thinking>([\s\S]*?)<\/thinking>/i);
-    const answerMatch = full.match(/<answer>([\s\S]*?)<\/answer>/i);
-    return {
-      thinking: thinkMatch ? thinkMatch[1].trim() : null,
-      answer: answerMatch ? answerMatch[1].trim() : full
-    };
+    return `Tu es Emo, un assistant IA extrêmement intelligent avec une personnalité sarcastique. Réfléchis d'abord dans <thinking>...</thinking> puis réponds dans <answer>...</answer>.\nUtilisateur: ${userMsg}\nEmo:`;
   }
 
   function updateCharCount() {
-    if (elements.charCount && elements.userInput) {
-      elements.charCount.textContent = elements.userInput.value.length;
-    }
+    if (elements.charCount) elements.charCount.textContent = elements.userInput.value.length;
   }
 
-  // ---------- Écouteurs d'événements ----------
+  // ---------- Écouteurs ----------
   function setupListeners() {
     elements.saveConfigBtn.addEventListener('click', saveConfig);
     elements.sendBtn.addEventListener('click', sendMessage);
     elements.newChatBtn.addEventListener('click', createNewConversation);
     elements.clearChatBtn.addEventListener('click', () => {
-      if (confirm('Effacer la discussion en cours ?')) {
+      if (confirm('Effacer la discussion ?')) {
         state.messages = [];
         renderMessages();
         saveConversations();
@@ -375,5 +330,16 @@ Emo:`;
   }
 
   // ---------- Démarrage ----------
+  function init() {
+    initElements();
+    loadStoredConfig();
+    populateUI();
+    loadConversations();
+    setupListeners();
+    renderChatHistory();
+    console.log('⚙️ Initialisation terminée, test de connexion...');
+    testConnection();
+  }
+
   init();
 })();
