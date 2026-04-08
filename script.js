@@ -1,5 +1,5 @@
 // ============================================================
-// EMO - Version finale déploiement GitHub Pages
+// EMO - VERSION CORRIGÉE (Proxy CORS fonctionnel)
 // ============================================================
 
 (function() {
@@ -12,7 +12,7 @@
       modelName: localStorage.getItem('emo_model_name') || 'hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF:Q8_0',
       thinkingEnabled: localStorage.getItem('emo_thinking') !== 'false',
       useProxy: localStorage.getItem('emo_use_proxy') === 'true',
-      proxyUrl: localStorage.getItem('emo_proxy_url') || ''
+      proxyUrl: localStorage.getItem('emo_proxy_url') || 'https://corsproxy.io/?'
     },
     conversations: JSON.parse(localStorage.getItem('emo_conversations') || '[]'),
     currentConversationId: localStorage.getItem('emo_current_conv') || null,
@@ -81,41 +81,57 @@
     testConnection();
   }
 
-  // ---------- Proxy ----------
-  function getBaseUrl() {
+  // ---------- Construction de l'URL effective ----------
+  function getEffectiveUrl(endpoint = '') {
     let base = state.config.ollamaUrl.replace(/\/$/, '');
+    
     if (state.config.useProxy && state.config.proxyUrl) {
-      base = state.config.proxyUrl.replace(/\/$/, '');
+      // Nettoyer l'URL du proxy (doit se terminer par ? si c'est corsproxy.io)
+      let proxy = state.config.proxyUrl.trim();
+      
+      // Cas spécial pour corsproxy.io : on s'assure qu'il y a bien un ? à la fin
+      if (proxy.includes('corsproxy.io') && !proxy.endsWith('?')) {
+        proxy = proxy.replace(/\/$/, '') + '/?';
+      }
+      
+      // Si le proxy ne contient pas déjà de paramètre, on encode l'URL cible
+      if (!proxy.includes('?') && !proxy.endsWith('?')) {
+        return `${proxy}/${encodeURIComponent(base + endpoint)}`;
+      } else {
+        // corsproxy.io attend l'URL directement après le ?
+        return proxy + encodeURIComponent(base + endpoint);
+      }
     }
-    return base;
+    
+    return base + endpoint;
   }
 
   // ---------- Test de connexion ----------
   async function testConnection() {
-    const base = getBaseUrl();
-    const url = `${base}/api/tags`;
-    console.log(`🔌 Test connexion vers ${url}`);
+    const testUrl = getEffectiveUrl('/api/tags');
+    console.log(`🔌 Test connexion vers : ${testUrl}`);
 
     updateStatus('testing', 'Test...');
 
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
-      const response = await fetch(url, { signal: controller.signal });
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(testUrl, { signal: controller.signal });
       clearTimeout(timeout);
 
       if (response.ok) {
         const data = await response.json();
         const count = data.models?.length || 0;
         updateStatus('connected', `✅ Connecté (${count} modèle(s))`);
-        console.log('✅ Modèles:', data.models.map(m => m.name));
+        console.log('✅ Modèles disponibles :', data.models);
       } else {
+        const text = await response.text();
         updateStatus('error', `Erreur HTTP ${response.status}`);
-        console.error('Réponse erreur:', await response.text());
+        console.error('Réponse non-JSON :', text.substring(0, 200));
       }
     } catch (e) {
       updateStatus('error', e.name === 'AbortError' ? 'Timeout' : e.message);
-      console.error('Erreur connexion:', e);
+      console.error('Erreur de connexion :', e);
     }
   }
 
@@ -126,10 +142,9 @@
 
   function showToast(msg, type) {
     console.log(`🔔 ${msg}`);
-    // Tu peux ajouter un vrai toast ici si tu veux
   }
 
-  // ---------- Conversations ----------
+  // ---------- Gestion des conversations ----------
   function loadConversations() {
     if (state.currentConversationId) {
       const conv = state.conversations.find(c => c.id === state.currentConversationId);
@@ -188,13 +203,9 @@
         createNewConversation();
       }
     }
-    saveConversationsToStorage();
-    renderChatHistory();
-  }
-
-  function saveConversationsToStorage() {
     localStorage.setItem('emo_conversations', JSON.stringify(state.conversations));
     localStorage.setItem('emo_current_conv', state.currentConversationId);
+    renderChatHistory();
   }
 
   // ---------- Rendu UI ----------
@@ -246,7 +257,7 @@
       .replace(/`([^`]+)`/g, '<code>$1</code>');
   }
 
-  // ---------- Envoi message ----------
+  // ---------- Envoi de message ----------
   async function sendMessage() {
     const input = elements.userInput.value.trim();
     if (!input || state.isGenerating) return;
@@ -278,9 +289,8 @@
   }
 
   async function callOllama(prompt) {
-    const base = getBaseUrl();
-    const url = `${base}/api/generate`;
-    console.log('📤 Envoi à', url);
+    const url = getEffectiveUrl('/api/generate');
+    console.log(`📤 Envoi à : ${url}`);
 
     const finalPrompt = state.config.thinkingEnabled ? buildThinkingPrompt(prompt) : prompt;
 
@@ -297,7 +307,10 @@
       body: JSON.stringify(body)
     });
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+    }
     const data = await response.json();
     return data.response;
   }
@@ -334,7 +347,7 @@ Emo:`;
     }
   }
 
-  // ---------- Event listeners ----------
+  // ---------- Écouteurs d'événements ----------
   function setupListeners() {
     elements.saveConfigBtn.addEventListener('click', saveConfig);
     elements.sendBtn.addEventListener('click', sendMessage);
