@@ -1,11 +1,11 @@
 // ============================================================
-// EMO - VERSION ROBUSTE AVEC LOGS COMPLETS
+// EMO - VERSION FINALE CORRIGÉE (Worker vs corsproxy.io)
 // ============================================================
 
 (function() {
   console.log('🚀 Emo initialisé');
 
-  // ---------- État global ----------
+  // ---------- État ----------
   const state = {
     config: {
       ollamaUrl: '',
@@ -22,7 +22,7 @@
 
   let elements = {};
 
-  // ---------- Initialisation DOM ----------
+  // ---------- DOM ----------
   function initElements() {
     elements = {
       ollamaUrl: document.getElementById('ollamaUrl'),
@@ -44,21 +44,28 @@
     };
   }
 
-  // ---------- Chargement de la config stockée ----------
+  // ---------- Chargement stockage ----------
   function loadStoredConfig() {
     try {
       state.config.ollamaUrl = localStorage.getItem('emo_ollama_url') || 'https://gluey-daxton-immiscible.ngrok-free.dev';
       state.config.modelName = localStorage.getItem('emo_model_name') || 'hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF:Q8_0';
       state.config.thinkingEnabled = localStorage.getItem('emo_thinking') !== 'false';
       state.config.useProxy = localStorage.getItem('emo_use_proxy') === 'true';
-      state.config.proxyUrl = localStorage.getItem('emo_proxy_url') || 'https://corsproxy.io/?';
-    } catch (e) {
-      console.warn('Erreur lecture localStorage, valeurs par défaut utilisées');
-    }
-    console.log('📦 Configuration chargée :', { ...state.config });
+      state.config.proxyUrl = localStorage.getItem('emo_proxy_url') || 'https://emo.huglostalatac.workers.dev';
+      
+      // Auto-correction si inversion
+      if (state.config.ollamaUrl.includes('workers.dev') && state.config.proxyUrl.includes('ngrok-free.dev')) {
+        console.warn('⚠️ Inversion corrigée');
+        const temp = state.config.ollamaUrl;
+        state.config.ollamaUrl = state.config.proxyUrl;
+        state.config.proxyUrl = temp;
+        localStorage.setItem('emo_ollama_url', state.config.ollamaUrl);
+        localStorage.setItem('emo_proxy_url', state.config.proxyUrl);
+      }
+    } catch (e) {}
+    console.log('📦 Config :', { ...state.config });
   }
 
-  // ---------- Remplir les champs UI ----------
   function populateUI() {
     elements.ollamaUrl.value = state.config.ollamaUrl;
     elements.modelName.value = state.config.modelName;
@@ -67,61 +74,59 @@
     elements.proxyUrl.value = state.config.proxyUrl;
   }
 
-  // ---------- Sauvegarde ----------
   function saveConfig() {
-    // Lire depuis l'UI
     state.config.ollamaUrl = elements.ollamaUrl.value.trim();
     state.config.modelName = elements.modelName.value.trim();
     state.config.thinkingEnabled = elements.thinkingToggle.checked;
     state.config.useProxy = elements.useProxy.checked;
     state.config.proxyUrl = elements.proxyUrl.value.trim();
 
-    // Stocker
     localStorage.setItem('emo_ollama_url', state.config.ollamaUrl);
     localStorage.setItem('emo_model_name', state.config.modelName);
     localStorage.setItem('emo_thinking', state.config.thinkingEnabled);
     localStorage.setItem('emo_use_proxy', state.config.useProxy);
     localStorage.setItem('emo_proxy_url', state.config.proxyUrl);
 
-    console.log('💾 Configuration sauvegardée :', { ...state.config });
+    console.log('💾 Sauvegardé');
     showToast('Configuration enregistrée', 'success');
     testConnection();
   }
 
-  // ---------- Construction de l'URL ----------
+  // ---------- Construction URL INTELLIGENTE ----------
   function buildUrl(endpoint) {
-    let base = state.config.ollamaUrl.replace(/\/$/, '');
-    const fullTarget = base + endpoint;
-    
-    if (!state.config.useProxy || !state.config.proxyUrl) {
-      console.log(`🔗 URL directe : ${fullTarget}`);
-      return fullTarget;
+    const base = state.config.ollamaUrl.replace(/\/$/, '');
+    const target = base + endpoint;
+
+    if (!state.config.useProxy) {
+      console.log(`🔗 Direct : ${target}`);
+      return target;
     }
+
+    let proxy = state.config.proxyUrl.trim().replace(/\/$/, '');
     
-    // Utilisation du proxy
-    let proxy = state.config.proxyUrl.trim();
-    // Nettoyage : on s'assure qu'il y a un ? à la fin pour corsproxy.io
-    if (proxy.includes('corsproxy.io') && !proxy.includes('?')) {
-      proxy = proxy.replace(/\/$/, '') + '/?';
-    }
-    // Construction selon le type de proxy
+    // Détection du type de proxy
+    const isCorsProxy = proxy.includes('corsproxy.io');
+    const isWorker = proxy.includes('workers.dev') || !isCorsProxy; // par défaut on considère comme worker simple
+
     let finalUrl;
-    if (proxy.includes('corsproxy.io')) {
-      // Format attendu : https://corsproxy.io/?https://cible.com/endpoint
-      finalUrl = proxy + encodeURIComponent(fullTarget);
+    if (isCorsProxy) {
+      // corsproxy.io attend l'URL complète après ?
+      if (!proxy.endsWith('?')) proxy += '/?';
+      finalUrl = proxy + encodeURIComponent(target);
     } else {
-      // Format : https://proxy.com/url=https://cible.com/endpoint (ou autre)
-      finalUrl = proxy + encodeURIComponent(fullTarget);
+      // Worker Cloudflare (ou autre proxy simple) : on envoie juste l'endpoint, le worker forwarde vers l'URL cible (configurée en dur)
+      finalUrl = proxy + endpoint;
     }
-    console.log(`🔗 URL via proxy : ${finalUrl}`);
+
+    console.log(`🔗 Proxy (${isCorsProxy ? 'corsproxy' : 'worker'}) : ${finalUrl}`);
     return finalUrl;
   }
 
-  // ---------- Test de connexion ----------
+  // ---------- Test connexion ----------
   async function testConnection() {
     const testUrl = buildUrl('/api/tags');
-    console.log(`🔌 Test connexion vers : ${testUrl}`);
-    updateStatus('testing', 'Test en cours...');
+    console.log(`🔌 Test : ${testUrl}`);
+    updateStatus('testing', 'Test...');
 
     try {
       const controller = new AbortController();
@@ -136,12 +141,12 @@
         console.log('✅ Modèles :', data.models);
       } else {
         const text = await response.text();
-        updateStatus('error', `Erreur HTTP ${response.status}`);
-        console.error('❌ Réponse non OK :', text.substring(0, 200));
+        updateStatus('error', `HTTP ${response.status}`);
+        console.error('❌ Réponse :', text.substring(0, 200));
       }
     } catch (e) {
       updateStatus('error', e.name === 'AbortError' ? 'Timeout' : e.message);
-      console.error('🔥 Erreur fetch :', e);
+      console.error('🔥 Erreur :', e);
     }
   }
 
@@ -154,7 +159,7 @@
     console.log(`🔔 ${msg}`);
   }
 
-  // ---------- Gestion des conversations (simplifiée) ----------
+  // ---------- Conversations (inchangé) ----------
   function loadConversations() {
     try {
       const convs = localStorage.getItem('emo_conversations');
@@ -240,7 +245,6 @@
     return text.replace(/</g, '&lt;').replace(/\n/g, '<br>');
   }
 
-  // ---------- Envoi de message ----------
   async function sendMessage() {
     const input = elements.userInput.value.trim();
     if (!input || state.isGenerating) return;
@@ -271,7 +275,7 @@
 
   async function callOllama(prompt) {
     const url = buildUrl('/api/generate');
-    console.log(`📤 Envoi à : ${url}`);
+    console.log(`📤 Envoi : ${url}`);
 
     const body = {
       model: state.config.modelName,
@@ -295,41 +299,30 @@
   }
 
   function buildThinkingPrompt(userMsg) {
-    return `Tu es Emo, un assistant IA extrêmement intelligent avec une personnalité sarcastique. Réfléchis d'abord dans <thinking>...</thinking> puis réponds dans <answer>...</answer>.\nUtilisateur: ${userMsg}\nEmo:`;
+    return `Tu es Emo, un assistant sarcastique. Réfléchis dans <thinking>...</thinking> puis réponds dans <answer>...</answer>.\nUtilisateur: ${userMsg}\nEmo:`;
   }
 
   function updateCharCount() {
     if (elements.charCount) elements.charCount.textContent = elements.userInput.value.length;
   }
 
-  // ---------- Écouteurs ----------
   function setupListeners() {
     elements.saveConfigBtn.addEventListener('click', saveConfig);
     elements.sendBtn.addEventListener('click', sendMessage);
     elements.newChatBtn.addEventListener('click', createNewConversation);
     elements.clearChatBtn.addEventListener('click', () => {
-      if (confirm('Effacer la discussion ?')) {
-        state.messages = [];
-        renderMessages();
-        saveConversations();
-      }
+      if (confirm('Effacer ?')) { state.messages = []; renderMessages(); saveConversations(); }
     });
     elements.userInput.addEventListener('input', () => {
       updateCharCount();
       elements.sendBtn.disabled = !elements.userInput.value.trim() || state.isGenerating;
     });
     elements.userInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     });
-    elements.menuToggle.addEventListener('click', () => {
-      elements.sidebar.classList.toggle('closed');
-    });
+    elements.menuToggle.addEventListener('click', () => elements.sidebar.classList.toggle('closed'));
   }
 
-  // ---------- Démarrage ----------
   function init() {
     initElements();
     loadStoredConfig();
@@ -337,7 +330,6 @@
     loadConversations();
     setupListeners();
     renderChatHistory();
-    console.log('⚙️ Initialisation terminée, test de connexion...');
     testConnection();
   }
 
