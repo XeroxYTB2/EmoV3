@@ -1,83 +1,81 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EMO - Agent IA Local</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Emo · ton acolyte sarcastique</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f0f0f">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="logo">
-                <h1>EMO</h1>
-                <p>Agent local Windows, conçu pour réfléchir, utiliser des outils et agir sur la machine.</p>
-            </div>
-            
-            <div class="hero">
-                <h2>Mode autonomie large</h2>
-                <p>EMO planifie ses actions, observe les résultats d'outils, puis continue jusqu'au résultat ou au blocage réel.</p>
-            </div>
-            
-            <button class="sidebar-btn" id="new-chat-btn">Nouveau chat</button>
-            <button class="sidebar-btn" id="open-memory-btn">Ouvrir la mémoire</button>
-            <button class="sidebar-btn" id="open-config-btn">Ouvrir la config</button>
-            <button class="sidebar-btn" id="admin-btn">Relancer en admin</button>
-            
-            <div class="info-panel">
-                <div class="info-row">
-                    <label>Statut</label>
-                    <div class="info-value" id="status-value">Prêt</div>
-                </div>
-                <div class="info-row">
-                    <label>Privilèges</label>
-                    <div class="info-value" id="privilege-value">Session standard</div>
-                </div>
-                <div class="info-row">
-                    <label>Modèle</label>
-                    <div class="info-value" id="model-value">Non configuré</div>
-                </div>
-                <div class="info-row">
-                    <label>Appareils</label>
-                    <div class="info-value" id="devices-value">0 appareil(s) configuré(s)</div>
-                </div>
-                <div class="info-row">
-                    <label>Actions protégées</label>
-                    <div class="info-value" id="security-value">0 action(s) sensible(s)</div>
-                </div>
-            </div>
-            
-            <div class="toolbox">
-                <h3>Surface d'action</h3>
-                <p>Fichiers, shell, PowerShell, processus, services, impression, micro, réseau local, automation écran et appareils configurés.</p>
-            </div>
-        </aside>
-        
-        <!-- Main Content -->
-        <main class="main-content">
-            <header>
-                <h1>Conversation</h1>
-                <p>Boucle agentique locale : thinking, outils, observations, puis action utile.</p>
-                <div class="model-chip" id="model-chip"></div>
-            </header>
-            
-            <div class="chat-container">
-                <div class="chat-messages" id="chat-messages">
-                    <!-- Messages will be inserted here -->
-                </div>
-            </div>
-            
-            <div class="composer">
-                <div class="composer-card">
-                    <textarea id="input-text" placeholder="Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne. Les actions sensibles demanderont le mot de passe."></textarea>
-                    <button id="send-btn">Envoyer</button>
-                </div>
-                <p class="helper-text">Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne. Les actions sensibles demanderont le mot de passe.</p>
-            </div>
-        </main>
-    </div>
-    
-    <script src="assets/js/main.js"></script>
+  <div class="app">
+    <!-- Barre latérale -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <button class="new-chat-btn" id="newChatBtn">+ Nouvelle discussion</button>
+      </div>
+      <div class="chat-history" id="chatHistory"></div>
+      <div class="sidebar-footer">
+        <div class="model-config">
+          <label>URL Ollama</label>
+          <input type="text" id="ollamaUrl" placeholder="https://ton-serveur-ollama.com" value="">
+        </div>
+        <div class="model-config">
+          <label>Modèle</label>
+          <input type="text" id="modelName" placeholder="llama3.2:3b" value="qwen2.5-coder:14b">
+        </div>
+        <div class="model-config">
+          <label>
+            <input type="checkbox" id="thinkingToggle" checked> Mode réflexion
+          </label>
+        </div>
+        <div class="model-config">
+          <label>
+            <input type="checkbox" id="useCorsProxy"> Utiliser un proxy CORS (si déconnecté)
+          </label>
+        </div>
+        <button class="save-config-btn" id="saveConfigBtn">Enregistrer</button>
+        <div class="status" id="connectionStatus">⚪ Déconnecté</div>
+      </div>
+    </aside>
+
+    <!-- Zone de chat principale -->
+    <main class="chat-container">
+      <header class="chat-header">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <h1>Emo <span class="emoji">😏</span></h1>
+        <div class="header-actions">
+          <button class="icon-btn" id="clearChatBtn" title="Effacer la discussion">🗑️</button>
+        </div>
+      </header>
+
+      <div class="messages" id="messages">
+        <div class="welcome-message">
+          <div class="welcome-avatar">😏</div>
+          <h2>Hey. Moi c'est Emo.</h2>
+          <p>Ton acolyte légèrement sarcastique et bien trop intelligent.<br>Pose-moi ce que tu veux. Je lèverai sans doute les yeux au ciel avant de répondre.</p>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-wrapper">
+          <textarea id="userInput" placeholder="Écris à Emo..." rows="1"></textarea>
+          <button class="send-btn" id="sendBtn" disabled>➤</button>
+        </div>
+        <div class="input-footer">
+          <span class="char-count"><span id="charCount">0</span>/4000</span>
+          <span class="hint">Emo réfléchit… ou pas.</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js');
+    }
+  </script>
+  <script src="script.js" type="module"></script>
 </body>
 </html>

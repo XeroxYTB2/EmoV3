@@ -1,5 +1,0 @@
-flask==2.3.3
-flask-cors==4.0.0
-llama-cpp-python==0.2.72
-huggingface-hub==0.22.2
-sentencepiece==0.2.0
