@@ -23,7 +23,7 @@
         </div>
         <div class="model-config">
           <label>Modèle</label>
-          <input type="text" id="modelName" placeholder="llama3.2:3b" value="qwen2.5-coder:14b">
+          <input type="text" id="modelName" placeholder="llama3.2:3b" value="hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF:Q8_0">
         </div>
         <div class="model-config">
           <label>
@@ -32,8 +32,12 @@
         </div>
         <div class="model-config">
           <label>
-            <input type="checkbox" id="useCorsProxy"> Utiliser un proxy CORS (si déconnecté)
+            <input type="checkbox" id="useCorsProxy"> Utiliser un proxy CORS
           </label>
+        </div>
+        <div class="model-config">
+          <label>URL du proxy CORS</label>
+          <input type="text" id="proxyUrl" placeholder="https://ton-worker.workers.dev" value="">
         </div>
         <button class="save-config-btn" id="saveConfigBtn">Enregistrer</button>
         <div class="status" id="connectionStatus">⚪ Déconnecté</div>
