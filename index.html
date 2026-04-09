@@ -1,85 +1,484 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Emo · ton acolyte sarcastique</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f0f0f">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Émo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0d0d11;
+      --surface:  #14141a;
+      --border:   #222232;
+      --text:     #e8e8f0;
+      --muted:    #5a5a72;
+      --accent:   #c084fc;
+      --accent2:  #818cf8;
+      --user-bg:  #1e1e2e;
+      --emo-bg:   #161624;
+      --em-color: #94a3b8;
+      --radius:   16px;
+      --max:      700px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; }
+
+    /* noise */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Layout ── */
+    #app {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%; max-width: var(--max);
+      padding: 16px 20px 12px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.35rem;
+      letter-spacing: -0.02em;
+    }
+    .logo-dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--em-color);
+      box-shadow: 0 0 10px var(--em-color);
+      animation: pulse 2.2s ease-in-out infinite;
+      transition: background .5s, box-shadow .5s;
+    }
+    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:.6} }
+
+    .header-right { display: flex; align-items: center; gap: 8px; }
+
+    .em-badge {
+      font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+      color: var(--em-color); border: 1px solid var(--em-color);
+      padding: 3px 10px; border-radius: 99px;
+      transition: color .5s, border-color .5s;
+    }
+
+    /* ── API URL bar (collapsible) ── */
+    #api-bar {
+      width: 100%; max-width: var(--max);
+      padding: 8px 20px;
+      background: rgba(255,200,100,.05);
+      border-bottom: 1px solid rgba(255,200,100,.15);
+      display: flex; align-items: center; gap: 8px;
+    }
+    #api-bar label { font-size: .62rem; letter-spacing: .1em; text-transform: uppercase; color: #FFD166; white-space: nowrap; }
+    #api-input {
+      flex: 1; background: transparent; border: none; outline: none;
+      font-family: 'DM Mono', monospace; font-size: .75rem;
+      color: var(--text); min-width: 0;
+    }
+    #api-input::placeholder { color: var(--muted); }
+    .btn-save {
+      font-family: 'DM Mono', monospace; font-size: .62rem; letter-spacing: .08em;
+      background: #FFD166; color: #000; border: none; border-radius: 8px;
+      padding: 4px 10px; cursor: pointer; white-space: nowrap; font-weight: 600;
+    }
+    .btn-save:hover { background: #ffe066; }
+
+    /* ── Buddy toggle ── */
+    .btn-buddy {
+      font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .07em;
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+      padding: 5px 12px; border-radius: 99px; cursor: pointer; transition: all .2s;
+    }
+    .btn-buddy:hover, .btn-buddy.on { border-color: var(--em-color); color: var(--em-color); background: rgba(192,132,252,.07); }
+
+    /* ── Chat ── */
+    #chat {
+      flex: 1; width: 100%; max-width: var(--max);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #messages {
+      flex: 1; overflow-y: auto; padding: 22px 18px 14px;
+      display: flex; flex-direction: column; gap: 15px;
+      scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+    }
+    #messages::-webkit-scrollbar { width: 3px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* welcome */
+    .welcome {
+      margin: auto; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 30px 20px; opacity: .55;
+    }
+    .welcome h2 { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; }
+    .welcome p { font-size: .78rem; color: var(--muted); max-width: 280px; line-height: 1.65; }
+
+    /* messages */
+    .msg { display: flex; flex-direction: column; max-width: 87%; animation: msgIn .22s cubic-bezier(.34,1.56,.64,1) both; }
+    @keyframes msgIn { from{opacity:0;transform:translateY(8px) scale(.97)} to{opacity:1;transform:none} }
+    .msg.user { align-self: flex-end; align-items: flex-end; }
+    .msg.emo  { align-self: flex-start; align-items: flex-start; }
+    .msg-lbl { font-size: .58rem; letter-spacing: .13em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .msg.emo .msg-lbl { color: var(--em-color); transition: color .5s; }
+    .bubble {
+      padding: 11px 15px; border-radius: var(--radius);
+      line-height: 1.65; font-size: .86rem; white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user .bubble { background: var(--user-bg); border: 1px solid var(--border); border-bottom-right-radius: 4px; }
+    .msg.emo  .bubble {
+      background: var(--emo-bg); border: 1px solid var(--border);
+      border-bottom-left-radius: 4px; border-left: 2px solid var(--em-color);
+      transition: border-color .5s;
+    }
+
+    /* thinking dots */
+    .dots {
+      display: flex; gap: 5px; padding: 13px 16px;
+      background: var(--emo-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); border-bottom-left-radius: 4px;
+      border-left: 2px solid var(--em-color); transition: border-color .5s;
+    }
+    .dots span {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: var(--em-color); animation: dot 1.2s ease-in-out infinite;
+    }
+    .dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+    @keyframes dot { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+
+    /* ── Input bar ── */
+    .input-bar { padding: 12px 18px 18px; border-top: 1px solid var(--border); }
+    .input-wrap {
+      display: flex; gap: 9px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 9px 12px;
+      transition: border-color .2s;
+    }
+    .input-wrap:focus-within { border-color: var(--em-color); }
+    #txt {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: 'DM Mono', monospace; font-size: .86rem;
+      resize: none; max-height: 110px; line-height: 1.6;
+    }
+    #txt::placeholder { color: var(--muted); }
+    .send {
+      background: var(--em-color); border: none; border-radius: 10px;
+      width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; align-self: flex-end;
+      transition: background .2s, transform .1s;
+    }
+    .send:hover { background: var(--accent2); }
+    .send:active { transform: scale(.92); }
+    .send svg { fill: #fff; width: 15px; }
+
+    /* ── DeskBuddy ── */
+    #buddy {
+      display: none; position: fixed; inset: 0;
+      background: var(--bg);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 30px; z-index: 50; cursor: pointer;
+    }
+    #buddy.on { display: flex; }
+    .buddy-hint {
+      position: absolute; bottom: 28px;
+      font-size: .6rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    }
+    .buddy-em {
+      font-family: 'Syne', sans-serif; font-size: .95rem; font-weight: 700;
+      letter-spacing: .18em; text-transform: uppercase;
+      color: var(--em-color); opacity: .75; transition: color .5s;
+    }
+
+    /* ── Eyes ── */
+    .eyes { display: flex; gap: 44px; align-items: center; }
+    .eye {
+      width: 88px; height: 88px; background: #fff; border-radius: 50%;
+      position: relative; overflow: hidden;
+      box-shadow: 0 0 36px var(--em-color), 0 0 70px rgba(0,0,0,.5);
+      transition: box-shadow .5s, border-radius .35s, transform .35s;
+      animation: blink 4.5s ease-in-out infinite;
+    }
+    .eye:nth-child(2) { animation-delay: .08s; }
+    @keyframes blink { 0%,94%,100%{transform:scaleY(1)} 97%{transform:scaleY(0.04)} }
+
+    .pupil {
+      width: 44px; height: 44px;
+      background: radial-gradient(circle at 35% 35%, #333, #000);
+      border-radius: 50%; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      transition: transform .1s ease-out, width .3s, height .3s;
+    }
+    .pupil::after {
+      content: ''; width: 9px; height: 9px; background: #fff;
+      border-radius: 50%; position: absolute; top: 18%; left: 18%; opacity: .9;
+    }
+
+    /* eye emotion states */
+    body.e-thinking .pupil { transform: translate(-50%, -72%) !important; }
+    body.e-joy .eye      { transform: scale(1.07); }
+    body.e-sadness .eye  { border-radius: 50% 50% 38% 38%; transform: scaleY(.82); }
+    body.e-sadness .pupil{ transform: translate(-50%,-28%); }
+    body.e-anger .eye    { clip-path: polygon(0 28%,100% 28%,100% 100%,0 100%); }
+    body.e-fear .eye     { transform: scale(1.18); }
+    body.e-fear .pupil   { width: 26px !important; height: 26px !important; }
+    body.e-surprise .eye { transform: scale(1.22); }
+    body.e-surprise .pupil { width: 20px !important; height: 20px !important; }
+  </style>
 </head>
-<body>
-  <div class="app">
-    <!-- Barre latérale -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sidebar-header">
-        <button class="new-chat-btn" id="newChatBtn">+ Nouvelle discussion</button>
-      </div>
-      <div class="chat-history" id="chatHistory"></div>
-      <div class="sidebar-footer">
-        <div class="model-config">
-          <label>URL Ollama</label>
-          <input type="text" id="ollamaUrl" placeholder="https://ton-serveur-ollama.com" value="">
-        </div>
-        <div class="model-config">
-          <label>Modèle</label>
-          <input type="text" id="modelName" placeholder="llama3.2:3b" value="hf.co/bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF:Q8_0">
-        </div>
-        <div class="model-config">
-          <label>
-            <input type="checkbox" id="thinkingToggle" checked> Mode réflexion
-          </label>
-        </div>
-        <div class="model-config">
-          <label>
-            <input type="checkbox" id="useCorsProxy"> Utiliser un proxy CORS
-          </label>
-        </div>
-        <div class="model-config">
-          <label>URL du proxy CORS</label>
-          <input type="text" id="proxyUrl" placeholder="https://ton-worker.workers.dev" value="">
-        </div>
-        <button class="save-config-btn" id="saveConfigBtn">Enregistrer</button>
-        <div class="status" id="connectionStatus">⚪ Déconnecté</div>
-      </div>
-    </aside>
+<body class="e-neutral">
+<div id="app">
 
-    <!-- Zone de chat principale -->
-    <main class="chat-container">
-      <header class="chat-header">
-        <button class="menu-toggle" id="menuToggle">☰</button>
-        <h1>Emo <span class="emoji">😏</span></h1>
-        <div class="header-actions">
-          <button class="icon-btn" id="clearChatBtn" title="Effacer la discussion">🗑️</button>
-        </div>
-      </header>
+  <!-- header -->
+  <header>
+    <div class="logo">
+      <div class="logo-dot" id="ldot"></div>
+      Émo
+    </div>
+    <div class="header-right">
+      <span class="em-badge" id="badge">Neutre</span>
+      <button class="btn-buddy" id="bBtn" onclick="toggleBuddy()">◉ DeskBuddy</button>
+    </div>
+  </header>
 
-      <div class="messages" id="messages">
-        <div class="welcome-message">
-          <div class="welcome-avatar">😏</div>
-          <h2>Hey. Moi c'est Emo.</h2>
-          <p>Ton acolyte légèrement sarcastique et bien trop intelligent.<br>Pose-moi ce que tu veux. Je lèverai sans doute les yeux au ciel avant de répondre.</p>
-        </div>
-      </div>
-
-      <div class="input-area">
-        <div class="input-wrapper">
-          <textarea id="userInput" placeholder="Écris à Emo..." rows="1"></textarea>
-          <button class="send-btn" id="sendBtn" disabled>➤</button>
-        </div>
-        <div class="input-footer">
-          <span class="char-count"><span id="charCount">0</span>/4000</span>
-          <span class="hint">Emo réfléchit… ou pas.</span>
-        </div>
-      </div>
-    </main>
+  <!-- API URL bar -->
+  <div id="api-bar">
+    <label>API&nbsp;URL</label>
+    <input id="api-input" type="text" placeholder="https://xxxx.ngrok-free.app (depuis Colab)" />
+    <button class="btn-save" onclick="saveApi()">Connecter</button>
   </div>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+  <!-- chat -->
+  <div id="chat">
+    <div id="messages">
+      <div class="welcome">
+        <h2>Bonjour 👋</h2>
+        <p>Je suis Émo. Connecte le backend Colab via le champ API URL en haut, puis discute avec moi !</p>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="txt" rows="1" placeholder="Écris quelque chose…"
+          onkeydown="onKey(event)" oninput="resize(this)"></textarea>
+        <button class="send" onclick="send()">
+          <svg viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- DeskBuddy -->
+<div id="buddy" onclick="toggleBuddy()">
+  <div class="eyes">
+    <div class="eye" id="eL"><div class="pupil" id="pL"></div></div>
+    <div class="eye" id="eR"><div class="pupil" id="pR"></div></div>
+  </div>
+  <div class="buddy-em" id="bem">Neutre</div>
+  <div class="buddy-hint">Clique pour revenir au chat</div>
+</div>
+
+<script>
+/* ── State ── */
+let API     = localStorage.getItem('emo_api') || '';
+let history = [];
+let emotion = 'neutral';
+let buddy   = false;
+let busy    = false;
+
+const COLORS = {
+  joy:'#FFD166', sadness:'#60a5fa', anger:'#f87171',
+  fear:'#a78bfa', surprise:'#34d399', disgust:'#a3a300', neutral:'#94a3b8'
+};
+const LABELS = {
+  joy:'Joyeux', sadness:'Triste', anger:'En colère',
+  fear:'Apeuré', surprise:'Surpris', disgust:'Dégoûté', neutral:'Neutre'
+};
+
+/* ── Init ── */
+if (API) document.getElementById('api-input').value = API;
+
+/* ── Save API ── */
+function saveApi() {
+  let val = document.getElementById('api-input').value.trim().replace(/\/$/, '');
+  if (!val) return;
+  API = val;
+  localStorage.setItem('emo_api', API);
+  showToast('✅ Backend connecté !');
+  // quick health check
+  fetch(API + '/health').then(r => r.json())
+    .then(() => showToast('🌸 Émo est en ligne !'))
+    .catch(() => showToast('⚠️ Impossible de contacter le backend'));
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
+    background:'#222232', color:'#e8e8f0', padding:'8px 18px',
+    borderRadius:'99px', fontSize:'.75rem', zIndex:'999',
+    border:'1px solid #333', fontFamily:"'DM Mono', monospace",
+    animation:'msgIn .2s ease both'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+/* ── Emotion ── */
+function applyEmotion(em) {
+  emotion = em;
+  const c = COLORS[em] || COLORS.neutral;
+  document.documentElement.style.setProperty('--em-color', c);
+  document.getElementById('badge').textContent = LABELS[em] || 'Neutre';
+  document.getElementById('bem').textContent   = LABELS[em] || 'Neutre';
+  document.body.className = `e-${em}`;
+}
+
+/* ── Eye tracking ── */
+document.addEventListener('mousemove', e => {
+  if (!buddy) return;
+  ['L','R'].forEach(s => {
+    const eye   = document.getElementById('e'+s);
+    const pupil = document.getElementById('p'+s);
+    const r  = eye.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    const dx = e.clientX - cx, dy = e.clientY - cy;
+    const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+    const mx = 17;
+    const ratio = Math.min(d, mx) / d;
+    pupil.style.transform = `translate(calc(-50% + ${dx*ratio}px), calc(-50% + ${dy*ratio}px))`;
+  });
+});
+
+/* ── Buddy ── */
+function toggleBuddy() {
+  buddy = !buddy;
+  document.getElementById('buddy').classList.toggle('on', buddy);
+  document.getElementById('bBtn').classList.toggle('on', buddy);
+}
+
+/* ── Input ── */
+function resize(el) { el.style.height='auto'; el.style.height = Math.min(el.scrollHeight,110)+'px'; }
+function onKey(e) { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } }
+
+/* ── Messages ── */
+function clearWelcome() { const w = document.querySelector('.welcome'); if(w) w.remove(); }
+
+function addMsg(role, text) {
+  clearWelcome();
+  const wrap = document.createElement('div'); wrap.className = `msg ${role}`;
+  const lbl  = document.createElement('div'); lbl.className = 'msg-lbl'; lbl.textContent = role==='user'?'Toi':'Émo';
+  const bbl  = document.createElement('div'); bbl.className = 'bubble'; bbl.textContent = text;
+  wrap.appendChild(lbl); wrap.appendChild(bbl);
+  document.getElementById('messages').appendChild(wrap);
+  scroll();
+  return bbl;
+}
+
+function addDots() {
+  clearWelcome();
+  const wrap = document.createElement('div'); wrap.className = 'msg emo';
+  const lbl  = document.createElement('div'); lbl.className = 'msg-lbl'; lbl.textContent = 'Émo';
+  const d    = document.createElement('div'); d.className = 'dots';
+  d.innerHTML = '<span></span><span></span><span></span>';
+  wrap.appendChild(lbl); wrap.appendChild(d);
+  document.getElementById('messages').appendChild(wrap);
+  scroll();
+  return wrap;
+}
+
+function scroll() { const m=document.getElementById('messages'); m.scrollTop=m.scrollHeight; }
+
+/* ── Send ── */
+async function send() {
+  if (busy) return;
+  if (!API) { showToast('⚠️ Colle l\'URL ngrok Colab dans le champ API URL !'); return; }
+  const txt = document.getElementById('txt');
+  const text = txt.value.trim();
+  if (!text) return;
+  txt.value = ''; txt.style.height = 'auto';
+
+  history.push({ role:'user', content:text });
+  addMsg('user', text);
+  busy = true;
+
+  // detect emotion on user message
+  detectEmotion(text);
+
+  // thinking state
+  document.body.classList.add('e-thinking');
+  const dotsEl = addDots();
+
+  try {
+    const res = await fetch(API + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: history, stream: true })
+    });
+
+    dotsEl.remove();
+    document.body.className = `e-${emotion}`;
+
+    // streaming bubble
+    clearWelcome();
+    const wrap = document.createElement('div'); wrap.className = 'msg emo';
+    const lbl  = document.createElement('div'); lbl.className = 'msg-lbl'; lbl.textContent = 'Émo';
+    const bbl  = document.createElement('div'); bbl.className = 'bubble';
+    wrap.appendChild(lbl); wrap.appendChild(bbl);
+    document.getElementById('messages').appendChild(wrap);
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value).split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.token) { full += data.token; bbl.textContent = full; scroll(); }
+          if (data.done && data.emotion) applyEmotion(data.emotion.emotion);
+        } catch {}
+      }
     }
-  </script>
-  <script src="script.js" type="module"></script>
+
+    history.push({ role:'assistant', content: full });
+
+  } catch(err) {
+    dotsEl.remove();
+    document.body.className = `e-${emotion}`;
+    addMsg('emo', '⚠️ Impossible de joindre le backend. Vérifie l\'URL ngrok et que Colab tourne.');
+    console.error(err);
+  }
+  busy = false;
+}
+
+/* ── Passive emotion detection ── */
+async function detectEmotion(text) {
+  if (!API) return;
+  try {
+    const r = await fetch(API+'/emotion', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text})
+    });
+    const d = await r.json();
+    if (d.emotion !== 'neutral') applyEmotion(d.emotion);
+  } catch {}
+}
+</script>
 </body>
 </html>
